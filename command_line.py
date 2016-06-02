@@ -13,7 +13,7 @@ def state_get_words(letter):
     print("Tes mots sont : {}".format(", ".join(words)))
     return words
 
-
+#TODO retravailler l'input, morceler en plusieurs fonctions
 def state_validate_words(*words):
     #On veut éliminer les doublons
     dico = []
@@ -56,20 +56,22 @@ def points_per_words(valid_words):
                 valeur[word] = 1
     return valeur
 
+
 def count_points(group_words,value):
     points = []
     for group in group_words:
         points.append(sum([value[word] for word in group]))
     return points
 
-
 if __name__ == "__main__":
     #voic choice
+    nb = int(input("Nombre de joueurs ?"));
     letter = chr(randint(0, 25) + 97)
-    #all_words = [[],[],[]]
-    all_words = [state_get_words(letter) for _ in range(3)]
-    print(all_words)
+    all_words = [state_get_words(letter) for _ in range(nb)]
     #pour le joueur 2
-    eliminated = [state_validate_words(all_words[0],all_words[2]) for _ in range(3)]
+    eliminated = [state_validate_words(all_words[i]) for i in range(nb)]
     validated_words = clean_words(all_words,eliminated)
+    print(validated_words)
     word_value = points_per_words(validated_words)
+    points = count_points(validated_words,word_value)
+    print(points)

@@ -18,5 +18,6 @@ def test_points_per_words():
     assert b["ab"] == 4
 
 def test_count_points():
+    print(count_points(words,values))
     assert [6,6] == count_points(words,values)
     assert [0,1] == count_points([[],["a"]],values)
