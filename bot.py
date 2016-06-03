@@ -16,12 +16,14 @@ class Bot:
         self.__token = token
         self.channel = channel
         self.channel_id = None
-        self.name = 'BotKaleidos'
+        self.name = 'casser_des_culs'
         self.timeout = timeout or 60
         self.future = asyncio.Future()
         self.queue = asyncio.Queue()
         self.log = logging.getLogger(str(self))
         self.rtm = None
+
+        self.joueurs = dict()
 
     def connect(self):
         """
@@ -68,11 +70,23 @@ class Bot:
 
                     assert msg.tp == MsgType.text
                     message = json.loads(msg.data)
-                    print(message)
-                    response = await self.call('chat.postMessage',
-                                                    channel=self.channel_id,
-                                                    username=self.name,
-                                                    text=message)
+                    if message['type'] == 'message' and message['user'] != self.rtm['self']['id']:
+                        tab_text = message['text'].split(" ")
+                        print(tab_text)
+                        if tab_text[0] == 'start':
+                            tab_text = tab_text[1:]
+                            print(tab_text)
+                            for i in range(len(tab_text)):
+                                self.joueurs[tab_text[i]] = tab_text[i][2:-1]
+                            await self.call('chat.postMessage',channel=message['user'],
+                                        username=self.name,
+                                        as_user=True,
+                                        text='Une partie se lance avec : {0}'.format(self.joueurs))
+                        else:
+                            await self.call('chat.postMessage',channel=message['user'],
+                                        username=self.name,
+                                        as_user=True,
+                                        text='Pour lancer une partie, ecrivez "start @joueur1 @joueur2..."')
                     await self.queue.put(message)
             finally:
                 ws.close()
