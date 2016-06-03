@@ -68,35 +68,33 @@ class Bot:
             tab_text = message['text'].split(" ")
             if tab_text[0] == 'start':
                 tab_text = tab_text[1:]
-                for i in range(len(tab_text)):
+                for joueurs in tab_text:
                     #TODO vérifier que les personnes existent
-                    self.joueurs[tab_text[i][2:-1]] = i
+                    self.joueurs[joueurs[2:-1]] = None
                 print(self.joueurs)
                 asyncio.ensure_future(self.message_player('Une partie se lance avec : {0}'.format(self.joueurs),message['user']))
-                self.letter = chr(randint(0, 25) + 97)
                 asyncio.ensure_future(self.notify_players())
                 self.current_state = 2
             else:
                 asyncio.ensure_future(self.message_player('Pour lancer une partie, ecrivez "start @joueur1 @joueur2..."',message['user']))
 
     async def state_collect_participation(self, message):
-        print("Stage 3")
+        print("Stage 2")
 
         user = message['user']
         if user in self.joueurs:
-            print("coucou")
             reponse = message['text'].lower()
             if reponse == 'n':
                 del self.joueurs[user]
             elif reponse == 'y':
-                self.confirmed_joueurs[user] = 'y'
+                self.confirmed_joueurs[user] = None
             else:
                 asyncio.ensure_future(self.message_player('Répondez par Y ou pas N',user))
 
         if len(self.joueurs) == len(self.confirmed_joueurs):
             print(self.confirmed_joueurs)
-            print("stage 4")
-            self.current_state = 1
+            print("stage 3")
+            self.current_state = 3
 
 
     async def state_collect_words(self, message):
