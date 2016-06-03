@@ -55,7 +55,7 @@ class Bot:
 
                     assert msg.tp == MsgType.text
                     message = json.loads(msg.data)
-                    asyncio.ensure_future(self.state[1](message))
+                    asyncio.ensure_future(self.state[self.current_state](message))
 
             finally:
                 ws.close()
@@ -64,30 +64,27 @@ class Bot:
     async def state_init(self,message):
             if message['type'] == 'message' and message['user'] != self.rtm['self']['id']:
                 tab_text = message['text'].split(" ")
-                print(tab_text)
                 if tab_text[0] == 'start':
                     tab_text = tab_text[1:]
-                    print(tab_text)
                     for i in range(len(tab_text)):
                         #TODO vérifier que les personnes existent
                         self.joueurs[tab_text[i]] = tab_text[i][2:-1]
-                    await self.call('chat.postMessage',channel=message['user'],
-                                username=self.name,
-                                as_user=True,
-                                text='Une partie se lance avec : {0}'.format(self.joueurs))
+                    asyncio.ensure_future(self.message_player('Une partie se lance avec : {0}'.format(self.joueurs),message['user']))
                     self.current_state = 2
                 else:
-                    await self.call('chat.postMessage',channel=message['user'],
-                                username=self.name,
-                                as_user=True,
-                                text='Pour lancer une partie, ecrivez "start @joueur1 @joueur2..."')
+                    asyncio.ensure_future(self.message_player('Pour lancer une partie, ecrivez "start @joueur1 @joueur2..."',message['user']))
 
     async def state_collect(self, message):
-            pass
+        print("Stage 2")
 
     async def state_vote(self):
             pass
 
+    async def message_player(self,message,player):
+        await self.call('chat.postMessage',channel=player,
+                    username=self.name,
+                    as_user=True,
+                    text=message)
 
 
 if __name__ == "__main__":
