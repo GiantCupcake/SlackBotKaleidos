@@ -1,7 +1,6 @@
 """Slack Bot that prints on the console."""
 import asyncio
 import json
-import logging
 
 from aiohttp import ClientSession, MsgType
 
@@ -12,15 +11,11 @@ from config.config import *
 class Bot:
     """Play Kaleidos with your friends"""
     #Regler ces histoires de channel, envoyer des mesages perso
-    def __init__(self,token,*args,channel=None,timeout=None):
+    def __init__(self,token,*args,timeout=None):
         self.__token = token
-        self.channel = channel
-        self.channel_id = None
-        self.name = 'casser_des_culs'
+        self.name = 'KaleiosBot'
         self.timeout = timeout or 60
         self.future = asyncio.Future()
-        self.queue = asyncio.Queue()
-        self.log = logging.getLogger(str(self))
         self.rtm = None
 
         self.joueurs = dict()
@@ -44,17 +39,6 @@ class Bot:
         if not self.rtm['ok']:
             self.future.set_result(ValueError(self.rtm['error']))
 
-        for c in self.rtm['channels']:
-            if c['name'] == self.channel:
-                self.channel_id = c['id']
-                break
-
-        for g in self.rtm['groups']:
-            if g['name'] == self.channel:
-                self.channel_id = g['id']
-                break
-
-        asyncio.ensure_future(self._consume())
         asyncio.ensure_future(self.state_listen())
 
     async def state_listen(self):
@@ -77,6 +61,7 @@ class Bot:
                             tab_text = tab_text[1:]
                             print(tab_text)
                             for i in range(len(tab_text)):
+                                #TODO vérifier que les personnes existent
                                 self.joueurs[tab_text[i]] = tab_text[i][2:-1]
                             await self.call('chat.postMessage',channel=message['user'],
                                         username=self.name,
@@ -87,23 +72,12 @@ class Bot:
                                         username=self.name,
                                         as_user=True,
                                         text='Pour lancer une partie, ecrivez "start @joueur1 @joueur2..."')
-                    await self.queue.put(message)
             finally:
                 ws.close()
 
-    async def _consume(self):
-        while True:
-            message = await self.queue.get()
-
-
-
 
 if __name__ == "__main__":
-    channel = 'inf-arc'
     debug = DEBUG
-
-    logging.basicConfig(level=logging.INFO)
-
 
     bot = Bot(TOKEN)
 
