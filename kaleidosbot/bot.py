@@ -3,7 +3,7 @@ import asyncio
 import json
 
 from aiohttp import ClientSession, MsgType
-
+from random import randint
 from api.api import call
 from config.config import *
 
@@ -17,9 +17,11 @@ class Bot:
         self.timeout = timeout or 60
         self.future = asyncio.Future()
         self.rtm = None
-        self.state = {1:self.state_init,2:self.state_collect,3:self.state_vote}
+        self.state = {1:self.state_init,2:self.state_collect_participation,3:self.state_collect_words,4:self.state_vote}
         self.current_state = 1
         self.joueurs = dict()
+        self.confirmed_joueurs = dict()
+        self.letter = None
 
     async def _run(self):
         self.rtm = await self.call('rtm.start')
@@ -55,27 +57,55 @@ class Bot:
 
                     assert msg.tp == MsgType.text
                     message = json.loads(msg.data)
-                    asyncio.ensure_future(self.state[self.current_state](message))
+                    if message['type'] == 'message' and message['user'] != self.rtm['self']['id']:
+                        asyncio.ensure_future(self.state[self.current_state](message))
 
             finally:
                 ws.close()
 
 
     async def state_init(self,message):
-            if message['type'] == 'message' and message['user'] != self.rtm['self']['id']:
-                tab_text = message['text'].split(" ")
-                if tab_text[0] == 'start':
-                    tab_text = tab_text[1:]
-                    for i in range(len(tab_text)):
-                        #TODO vérifier que les personnes existent
-                        self.joueurs[tab_text[i]] = tab_text[i][2:-1]
-                    asyncio.ensure_future(self.message_player('Une partie se lance avec : {0}'.format(self.joueurs),message['user']))
-                    self.current_state = 2
-                else:
-                    asyncio.ensure_future(self.message_player('Pour lancer une partie, ecrivez "start @joueur1 @joueur2..."',message['user']))
+            tab_text = message['text'].split(" ")
+            if tab_text[0] == 'start':
+                tab_text = tab_text[1:]
+                for i in range(len(tab_text)):
+                    #TODO vérifier que les personnes existent
+                    self.joueurs[tab_text[i][2:-1]] = i
+                print(self.joueurs)
+                asyncio.ensure_future(self.message_player('Une partie se lance avec : {0}'.format(self.joueurs),message['user']))
+                self.letter = chr(randint(0, 25) + 97)
+                asyncio.ensure_future(self.notify_players())
+                self.current_state = 2
+            else:
+                asyncio.ensure_future(self.message_player('Pour lancer une partie, ecrivez "start @joueur1 @joueur2..."',message['user']))
 
-    async def state_collect(self, message):
-        print("Stage 2")
+    async def state_collect_participation(self, message):
+        print("Stage 3")
+
+        user = message['user']
+        if user in self.joueurs:
+            print("coucou")
+            reponse = message['text'].lower()
+            if reponse == 'n':
+                del self.joueurs[user]
+            elif reponse == 'y':
+                self.confirmed_joueurs[user] = 'y'
+            else:
+                asyncio.ensure_future(self.message_player('Répondez par Y ou pas N',user))
+
+        if len(self.joueurs) == len(self.confirmed_joueurs):
+            print(self.confirmed_joueurs)
+            print("stage 4")
+            self.current_state = 1
+
+
+    async def state_collect_words(self, message):
+        pass
+
+
+    async def notify_players(self):
+            for players in self.joueurs:
+                asyncio.ensure_future(self.message_player('Vous avez été désigné pour jouer une partie de Kaleidos, acceptez-vous ? [Y/N]',players))
 
     async def state_vote(self):
             pass
