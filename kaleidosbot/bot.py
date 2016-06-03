@@ -1,4 +1,4 @@
-"""Slack Bot that prints on the console."""
+"""Slack Bot that allow you to call your friends for a game of Kaleidos"""
 import asyncio
 import json
 
@@ -63,7 +63,7 @@ class Bot:
             finally:
                 ws.close()
 
-
+    #Etat N°1
     async def state_init(self,message):
             tab_text = message['text'].split(" ")
             if tab_text[0] == 'start':
@@ -78,6 +78,7 @@ class Bot:
             else:
                 asyncio.ensure_future(self.message_player('Pour lancer une partie, ecrivez "start @joueur1 @joueur2..."',message['user']))
 
+    #Etat N°2
     async def state_collect_participation(self, message):
         print("Stage 2")
 
@@ -94,9 +95,18 @@ class Bot:
         if len(self.joueurs) == len(self.confirmed_joueurs):
             print(self.confirmed_joueurs)
             print("stage 3")
-            self.current_state = 3
+            asyncio.ensure_future(self.initie_manche())
 
 
+    #Etat N°3
+    async def initie_manche(self):
+        self.letter = chr(randint(0, 25) + 97)
+        for players in self.joueurs:
+            asyncio.ensure_future(self.message_player(URL,players))
+            asyncio.ensure_future(self.message_player('Trouvez des choses commençant par la lettre {0}'.format(self.letter),players))
+        self.current_state = 3
+
+    #Etat N°4
     async def state_collect_words(self, message):
         pass
 
@@ -104,6 +114,7 @@ class Bot:
     async def notify_players(self):
             for players in self.joueurs:
                 asyncio.ensure_future(self.message_player('Vous avez été désigné pour jouer une partie de Kaleidos, acceptez-vous ? [Y/N]',players))
+
 
     async def state_vote(self):
             pass
