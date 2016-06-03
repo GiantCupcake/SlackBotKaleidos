@@ -1,0 +1,48 @@
+.. KaleidosBot documentation master file, created by
+   sphinx-quickstart on Fri Jun  3 16:05:17 2016.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+Welcome to KaleidosBot's documentation!
+=======================================
+
+Cette documentation décrit le fonctionnement du bot Kaleidos. Ce bot a été créé lors d'un projet dans le cadre
+des cours de programmation en Python de la He-Arc.
+
+.. toctree::
+   :maxdepth: 2
+
+
+   
+   
+Qu'est-ce que KaleidosBot?
+==========================
+Il s'agit d'un bot actif sur slack et permettant de jouer au jeu Kaleidos. Le bot affiche une lettre et une
+image commune à tous les joueurs pendant un certain laps de temps. Chaque joueur doit inscrire dans son chat
+le maximum d'objets contenus dans l'image et commençant par la lettre définie.
+A la fin du temps imparti, le bot va faire voter chacun des joueurs afin de définir les mots corrects et qui
+apparaissent sur l'image.
+Une fois que la phase de vote est terminée, le bot va calculer les points obtenus pour chacun des joueurs sur
+la manche en cours et les ajoute au score de chacun des joueurs puis lance la manche suivante.
+Le joueur gagnant est celui qui a obtenu le plus de point à la fin des différentes manches.
+   
+   
+   
+Comment jouer avec KaleidosBot?
+===============================
+Afin de démarrer une partie de Kaleidos avec le KaleidosBot, il est nécessaire d'installer le bot sur un chan de 
+slack.com.
+Une fois le bot présent, il faut lui envoyer la commande "start @joueur1 @joueur2 ..."
+Lorsque la partie est lancée, chaque joueur entre autant de mot que possible commençant par la lettre définie et 
+présent sur l'image. Il faut entrer un mot par ligne.
+A la fin de chaque manche, chaque joueur doit voter pour les mots trouvés par les autres joueurs. Le bot va afficher
+les mots un par un et pour chacun des mots la personne doit répondre "oui" s'il valide le mot ou "non" s'il ne le valide
+pas.
+Le total de point se fait selon les différents mots trouvés. Un mot validé et qui n'a été trouvé que par un seul des
+joueurs lui rapporte 4 points. Chaque mot validé et qui a été trouvé par plusieurs utilisateurs leur rapporte a tous 
+1 point.
+
+
+   
+* :ref:`search`
+
