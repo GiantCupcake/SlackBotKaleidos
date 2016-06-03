@@ -1,6 +1,7 @@
 """Slack Bot that allow you to call your friends for a game of Kaleidos"""
 import asyncio
 import json
+from collections import OrderedDict
 
 from aiohttp import ClientSession, MsgType
 from random import randint
@@ -19,7 +20,7 @@ class Bot:
         self.rtm = None
         self.state = {1:self.state_init,2:self.state_collect_participation,3:self.state_collect_words,4:self.state_vote}
         self.current_state = 1
-        self.joueurs = dict()
+        self.joueurs = OrderedDict()
         self.confirmed_joueurs = dict()
         self.letter = None
 
@@ -57,6 +58,7 @@ class Bot:
 
                     assert msg.tp == MsgType.text
                     message = json.loads(msg.data)
+                    print(message)
                     if message['type'] == 'message' and message['user'] != self.rtm['self']['id']:
                         asyncio.ensure_future(self.state[self.current_state](message))
 
@@ -93,22 +95,20 @@ class Bot:
                 asyncio.ensure_future(self.message_player('Répondez par Y ou pas N',user))
 
         if len(self.joueurs) == len(self.confirmed_joueurs):
-            print(self.confirmed_joueurs)
             print("stage 3")
             asyncio.ensure_future(self.initie_manche())
 
 
-    #Etat N°3
     async def initie_manche(self):
         self.letter = chr(randint(0, 25) + 97)
         for players in self.joueurs:
-            asyncio.ensure_future(self.message_player(URL,players))
+            asyncio.ensure_future(self.message_player('Cherchez sur cette image : {0}'.format(URL),players))
             asyncio.ensure_future(self.message_player('Trouvez des choses commençant par la lettre {0}'.format(self.letter),players))
         self.current_state = 3
 
-    #Etat N°4
+    #Etat N°3
     async def state_collect_words(self, message):
-        pass
+        print("stage 4")
 
 
     async def notify_players(self):
