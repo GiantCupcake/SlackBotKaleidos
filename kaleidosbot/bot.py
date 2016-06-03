@@ -2,6 +2,7 @@
 import asyncio
 import json
 from collections import OrderedDict
+from urllib.parse import *
 
 from aiohttp import ClientSession, MsgType
 from random import randint
@@ -59,7 +60,7 @@ class Bot:
                     assert msg.tp == MsgType.text
                     message = json.loads(msg.data)
                     print(message)
-                    if message['type'] == 'message' and message['user'] != self.rtm['self']['id']:
+                    if message['type'] == 'message' and 'user' in message.keys() and message['user'] != self.rtm['self']['id']:
                         asyncio.ensure_future(self.state[self.current_state](message))
 
             finally:
@@ -102,7 +103,7 @@ class Bot:
     async def initie_manche(self):
         self.letter = chr(randint(0, 25) + 97)
         for players in self.joueurs:
-            asyncio.ensure_future(self.message_player('Cherchez sur cette image : {0}'.format(URL),players))
+            asyncio.ensure_future(self.message_player('Cherchez sur cette image : {0}'.format(quote(URL)),players))
             asyncio.ensure_future(self.message_player('Trouvez des choses commençant par la lettre {0}'.format(self.letter),players))
         self.current_state = 3
 
