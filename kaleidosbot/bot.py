@@ -3,6 +3,7 @@ import asyncio
 import json
 from collections import OrderedDict
 from urllib.parse import *
+from time import time
 
 from aiohttp import ClientSession, MsgType
 from random import randint
@@ -22,8 +23,12 @@ class Bot:
         self.state = {1:self.state_init,2:self.state_collect_participation,3:self.state_collect_words,4:self.state_vote}
         self.current_state = 1
         self.joueurs = OrderedDict()
-        self.confirmed_joueurs = dict()
+        self.confirmed_joueurs = dict() #Utilisé pour éliminer les joueurs ne souhaitant pas participer
+        self.mots_elimines = dict() #String de mots éliminés par joueurs
+        self.words_to_eliminate = dict() #dic contenant des OrderedDict
         self.letter = None
+        self.time_start = None
+        self.duree_manche = 15
 
     async def _run(self):
         self.rtm = await self.call('rtm.start')
@@ -76,7 +81,7 @@ class Bot:
                     self.joueurs[joueurs[2:-1]] = None
                 print(self.joueurs)
                 asyncio.ensure_future(self.message_player('Une partie se lance avec : {0}'.format(self.joueurs),message['user']))
-                asyncio.ensure_future(self.notify_players())
+                asyncio.ensure_future(self.notify_players('Vous avez été désigné pour jouer une partie de Kaleidos, acceptez-vous ? [Y/N]'))
                 self.current_state = 2
             else:
                 asyncio.ensure_future(self.message_player('Pour lancer une partie, ecrivez "start @joueur1 @joueur2..."',message['user']))
@@ -103,28 +108,61 @@ class Bot:
     async def initie_manche(self):
         self.letter = chr(randint(0, 25) + 97)
         for players in self.joueurs:
-            asyncio.ensure_future(self.message_player('Cherchez sur cette image : {0}'.format(quote(URL)),players))
+            #On va stocker leurs mots dans un set, on initialise ici ces sets
+            self.joueurs[players] = {}
+            #ajoute ici une emprunte dans le temps permettra de laisser un certain temps pour la prochaine phase
+            self.time_start = time()
+            #asyncio.ensure_future(self.message_player('Cherchez sur cette image : {0}'.format(quote(URL)),players))
+            asyncio.ensure_future(self.message_player('Cherchez sur cette image : {0}'.format(URL),players, unfurl_link=False))
             asyncio.ensure_future(self.message_player('Trouvez des choses commençant par la lettre {0}'.format(self.letter),players))
         self.current_state = 3
+
 
     #Etat N°3
     async def state_collect_words(self, message):
         print("stage 4")
+        if (self.time_start - time()) > self.duree_manche:
+            asyncio.run_until_complete(self.prepare_vote())
+        user = message['user']
+        if user in self.joueurs:
+            word = message['text'].lower()
+            if word.startswith(self.letter):
+                self.joueurs[user].add(word)
+
+    async def prepare_vote(self):
+        asyncio.ensure_future(self.notify_players('Le temps est écoulé ! Vous allez maintenant éliminer les mots que vous jugez non-conformes'))
+        for me in self.joueurs:
+            dico = OrderedDict()
+            for player in self.joueurs:
+                if player == me:
+                    continue
+                else:
+                    #On fait l'aggrégation de tous les dictionnaires des autres joueurs
+                    dico = dico + self.joueurs[player]
+            self.words_to_eliminate[me] = dico
+            asyncio.ensure_future(self.message_player('Parmis les mots suivants,\
+                                    éliminez en entrant l\'indice du mot (les indices commencent à 0) : {0}'.format(dico),me))
+        self.current_state = 4
+        return
 
 
-    async def notify_players(self):
+
+    async def notify_players(self,message):
             for players in self.joueurs:
-                asyncio.ensure_future(self.message_player('Vous avez été désigné pour jouer une partie de Kaleidos, acceptez-vous ? [Y/N]',players))
+                asyncio.ensure_future(self.message_player(message,players))
 
 
     async def state_vote(self):
+        user = message['user']
+        if user in self.joueurs:
             pass
 
-    async def message_player(self,message,player):
+
+    async def message_player(self,message,player,**kwargs):
         await self.call('chat.postMessage',channel=player,
                     username=self.name,
                     as_user=True,
-                    text=message)
+                    text=message,**kwargs)
 
 
 if __name__ == "__main__":
