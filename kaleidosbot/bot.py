@@ -24,8 +24,9 @@ class Bot:
         self.current_state = 1
         self.joueurs = OrderedDict()
         self.confirmed_joueurs = dict() #Utilisé pour éliminer les joueurs ne souhaitant pas participer
-        self.mots_elimines = dict() #String de mots éliminés par joueurs
-        self.words_to_eliminate = dict() #dic contenant des OrderedDict
+        self.mots_elimines = dict() #un dict pour checker si tout le monde a voté
+        self.words_to_keep = dict() #une liste par joueurs
+        self.words_confirmed = set()
         self.letter = None
         self.time_start = None
         self.duree_manche = 15
@@ -64,7 +65,6 @@ class Bot:
 
                     assert msg.tp == MsgType.text
                     message = json.loads(msg.data)
-                    print(message)
                     if message['type'] == 'message' and 'user' in message.keys() and message['user'] != self.rtm['self']['id']:
                         asyncio.ensure_future(self.state[self.current_state](message))
 
@@ -101,7 +101,6 @@ class Bot:
                 asyncio.ensure_future(self.message_player('Répondez par Y ou pas N',user))
 
         if len(self.joueurs) == len(self.confirmed_joueurs):
-            print("stage 3")
             asyncio.ensure_future(self.initie_manche())
 
 
@@ -109,7 +108,7 @@ class Bot:
         self.letter = chr(randint(0, 25) + 97)
         for players in self.joueurs:
             #On va stocker leurs mots dans un set, on initialise ici ces sets
-            self.joueurs[players] = {}
+            self.joueurs[players] = set()
             #ajoute ici une emprunte dans le temps permettra de laisser un certain temps pour la prochaine phase
             self.time_start = time()
             #asyncio.ensure_future(self.message_player('Cherchez sur cette image : {0}'.format(quote(URL)),players))
@@ -120,28 +119,32 @@ class Bot:
 
     #Etat N°3
     async def state_collect_words(self, message):
-        print("stage 4")
-        if (self.time_start - time()) > self.duree_manche:
-            asyncio.run_until_complete(self.prepare_vote())
+        print("stage 3")
+        if (time() - self.time_start ) > self.duree_manche:
+            asyncio.ensure_future(self.prepare_vote())
+            return
         user = message['user']
         if user in self.joueurs:
-            word = message['text'].lower()
-            if word.startswith(self.letter):
-                self.joueurs[user].add(word)
+            response = message['text'].lower().strip().split(' ')
+            for word in response:
+                if word.startswith(self.letter):
+                    self.joueurs[user].add(word)
 
     async def prepare_vote(self):
+        print("prepare_vote")
         asyncio.ensure_future(self.notify_players('Le temps est écoulé ! Vous allez maintenant éliminer les mots que vous jugez non-conformes'))
         for me in self.joueurs:
-            dico = OrderedDict()
+            dico = set()
             for player in self.joueurs:
                 if player == me:
                     continue
                 else:
-                    #On fait l'aggrégation de tous les dictionnaires des autres joueurs
-                    dico = dico + self.joueurs[player]
-            self.words_to_eliminate[me] = dico
-            asyncio.ensure_future(self.message_player('Parmis les mots suivants,\
-                                    éliminez en entrant l\'indice du mot (les indices commencent à 0) : {0}'.format(dico),me))
+                    #On fait l'aggrégation de tous les sets de mots des autres joueurs
+                    dico = dico.union(self.joueurs[player])
+
+            list_words = list(dico)
+            self.words_to_keep[me] = list_words
+            asyncio.ensure_future(self.message_player('Parmis les mots suivants, éliminez-en en entrant l\'indice du mot (les indices commencent à 0, terminez par -1) : {0}'.format(list_words),me))
         self.current_state = 4
         return
 
@@ -151,11 +154,38 @@ class Bot:
             for players in self.joueurs:
                 asyncio.ensure_future(self.message_player(message,players))
 
-
-    async def state_vote(self):
+    #etat 4
+    async def state_vote(self,message):
+        print("state 4")
         user = message['user']
         if user in self.joueurs:
-            pass
+            indices = message['text'].split(' ')
+            indices = map(int,indices)
+            print(indices)
+            for i in indices:
+                if i == -1:
+                    break
+                del self.words_to_keep[user][i]
+            self.mots_elimines[user] = True
+        if len(self.mots_elimines) == len(self.joueurs):
+            self.eliminate_words()
+            self.count_points()
+
+    def eliminate_words(self):
+        for players,words in iter(self.words_to_keep.items()):
+            for word in words:
+                self.words_confirmed.add(word)
+        for player, words in iter(self.joueurs.items()):
+            new_set = set()
+            for word in words:
+                if word in self.words_confirmed:
+                    new_set.add(word)
+                    self.joueurs[player].remove(word)
+            self.joueurs[player] = new_set
+        return
+
+    def count_points(self):
+        pass
 
 
     async def message_player(self,message,player,**kwargs):
