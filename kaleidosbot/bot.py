@@ -30,7 +30,7 @@ class Bot:
         self.words_value = dict()
         self.letter = None
         self.time_start = None
-        self.duree_manche = 15
+        self.duree_manche = 60
 
     async def _run(self):
         self.rtm = await self.call('rtm.start')
@@ -80,7 +80,7 @@ class Bot:
                 for joueurs in tab_text:
                     #TODO vérifier que les personnes existent
                     self.joueurs[joueurs[2:-1]] = None
-                asyncio.ensure_future(self.message_player('Une partie se lance avec : {0}'.format(self.joueurs),message['user']))
+                asyncio.ensure_future(self.message_player('Une partie se lance avec : {}'.format(list(self.joueurs.keys())),message['user']))
                 asyncio.ensure_future(self.notify_players('Vous avez été désigné pour jouer une partie de Kaleidos, acceptez-vous ? [Y/N]'))
                 self.current_state = 2
             else:
@@ -142,7 +142,6 @@ class Bot:
                 else:
                     #On fait l'aggrégation de tous les sets de mots des autres joueurs
                     dico = dico.union(self.joueurs[player])
-
             list_words = list(dico)
             self.words_to_keep[me] = list_words
             asyncio.ensure_future(self.message_player('Parmis les mots suivants, éliminez-en en entrant l\'indice du mot (les indices commencent à 0, terminez par -1) : {0}'.format(list_words),me))
@@ -171,18 +170,20 @@ class Bot:
             self.points_per_words()
             self.count_points()
             asyncio.ensure_future(self.display_points())
+            await asyncio.sleep(30)
             asyncio.ensure_future(self.initie_manche())
 
+
     def eliminate_words(self):
-        for players,words in iter(self.words_to_keep.items()):
-            for word in words:
+        for players in self.words_to_keep:
+            for word in self.words_to_keep[players]:
+                print(word)
                 self.words_confirmed.add(word)
         for player, words in iter(self.joueurs.items()):
             new_set = set()
             for word in words:
                 if word in self.words_confirmed:
                     new_set.add(word)
-                    self.joueurs[player].remove(word)
             self.joueurs[player] = new_set
         return
 
@@ -200,7 +201,7 @@ class Bot:
 
 
     async def display_points(self):
-        asyncio.ensure_future(self.notify_players('Manche terminée. Les mots soumis par les joueurs étaient : {0}.\n Les scores en sont actuellement à : {1}'.format(self.joueurs,self.confirmed_joueurs)))
+        asyncio.ensure_future(self.notify_players('Manche terminée. Les mots soumis par les joueurs étaient : {0}.\n Les scores en sont actuellement à : {1}'.format(self.joueurs.values(),self.confirmed_joueurs)))
 
     async def message_player(self,message,player,**kwargs):
         await self.call('chat.postMessage',channel=player,
