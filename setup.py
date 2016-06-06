@@ -23,7 +23,7 @@ setup(
     version='0.0.1',
 
     description="""
-        A Python project based on Slackbot allowing to play Kaleidos with
+        A Python project based on Slackbot allowing you to play Kaleidos with
 		you friends.
         """,
     long_description=long_description,
@@ -69,7 +69,7 @@ setup(
     # your project is installed. For an analysis of "install_requires" vs pip's
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=['aiohttp', 'websockets'],
+    install_requires=('aiohttp', 'websockets'),
     extras_requires={
         'test': ('pytest',),
         'doc': ('Sphinx', 'sphinx_rtd_theme'),

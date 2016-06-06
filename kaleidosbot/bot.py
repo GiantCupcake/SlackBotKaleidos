@@ -7,17 +7,22 @@ from time import time
 
 from aiohttp import ClientSession, MsgType
 from random import randint
-from api.api import call
-from config.config import *
+from .api import call
+from .config import *
+
+
+URL = ['http://www.cyberfab.fr/gfx/kaleidos/illus3.jpg',
+        'http://www.ludigaume.be/Jeux/K/Kaleidos/kaleidos_Photos/2.jpg',
+        'http://www.ludigaume.be/Jeux/K/Kaleidos/kaleidos_Photos/5.jpg',
+        'http://das-spielen.de/wordpress/wp-content/uploads/kaleidosBig.jpg']
 
 
 class Bot:
     """Play Kaleidos with your friends"""
     #Regler ces histoires de channel, envoyer des mesages perso
-    def __init__(self,token,*args,timeout=None):
+    def __init__(self,token,*args):
         self.__token = token
         self.name = 'KaleiosBot'
-        self.timeout = timeout or 60
         self.future = asyncio.Future()
         self.rtm = None
         self.state = {1:self.state_init,2:self.state_collect_participation,3:self.state_collect_words,4:self.state_vote}
@@ -215,15 +220,3 @@ class Bot:
                     username=self.name,
                     as_user=True,
                     text=message,**kwargs)
-
-
-if __name__ == "__main__":
-    debug = DEBUG
-
-    bot = Bot(TOKEN)
-
-    loop = asyncio.get_event_loop()
-
-    loop.set_debug(debug)
-    loop.run_until_complete(bot.connect())
-    loop.close()
