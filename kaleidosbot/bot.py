@@ -30,7 +30,9 @@ class Bot:
         self.words_value = dict()
         self.letter = None
         self.time_start = None
-        self.duree_manche = 60
+        self.duree_manche = 120 #Des manches de 2 minutes, on pourrait faire plus
+        self.nombre_manche = 1
+        self.currente_manche = 0
 
     async def _run(self):
         self.rtm = await self.call('rtm.start')
@@ -74,20 +76,23 @@ class Bot:
 
     #Etat N°1
     async def state_init(self,message):
-            tab_text = message['text'].split(" ")
-            if tab_text[0] == 'start':
-                tab_text = tab_text[1:]
-                for joueurs in tab_text:
-                    #TODO vérifier que les personnes existent
-                    self.joueurs[joueurs[2:-1]] = None
-                asyncio.ensure_future(self.message_player('Une partie se lance avec : {}'.format(list(self.joueurs.keys())),message['user']))
-                asyncio.ensure_future(self.notify_players('Vous avez été désigné pour jouer une partie de Kaleidos, acceptez-vous ? [Y/N]'))
-                self.current_state = 2
-            else:
-                asyncio.ensure_future(self.message_player('Pour lancer une partie, ecrivez "start @joueur1 @joueur2..."',message['user']))
+        """En attente du message de début de partie"""
+        tab_text = message['text'].split(" ")
+        if tab_text[0] == 'start':
+            tab_text = tab_text[1:]
+            for joueurs in tab_text:
+                #TODO vérifier que les personnes existent
+                #joueurs[2:-1] permet de formatter la string dans le format voulu
+                self.joueurs[joueurs[2:-1]] = None
+            asyncio.ensure_future(self.message_player('Une partie se lance avec : {}'.format(list(self.joueurs.keys())),message['user']))
+            asyncio.ensure_future(self.notify_players('Vous avez été désigné pour jouer une partie de Kaleidos, acceptez-vous ? [Y/N]'))
+            self.current_state = 2
+        else:
+            asyncio.ensure_future(self.message_player('Pour lancer une partie, ecrivez "start @joueur1 @joueur2..."',message['user']))
 
     #Etat N°2
     async def state_collect_participation(self, message):
+        """On demande aux utilisateurs invités s'ils acceptent la partie"""
         user = message['user']
         if user in self.joueurs:
             reponse = message['text'].lower()
@@ -98,25 +103,23 @@ class Bot:
                 self.confirmed_joueurs[user] = 0
             else:
                 asyncio.ensure_future(self.message_player('Répondez par Y ou pas N',user))
-
         if len(self.joueurs) == len(self.confirmed_joueurs):
             asyncio.ensure_future(self.initie_manche())
 
 
     async def initie_manche(self):
-        #Entre deux manches on veut réinitialiser tous les mots
+        """Entre deux manches on veut réinitialiser tous les mots qui ont été données, changer de lettre, changer d'image"""
         self.mots_elimines = dict() #un dict pour checker si tout le monde a voté
         self.words_to_keep = dict() #une liste par joueurs
         self.words_confirmed = set()
         self.words_value = dict()
         self.letter = chr(randint(0, 25) + 97)
+        asyncio.ensure_future(self.notify_players('Trouvez des choses commençant par la lettre : \' {0} \' sur cette image: {1}'.format(self.letter,URL[self.currente_manche])))
         for players in self.joueurs:
             #On va stocker leurs mots dans un set, on initialise ici ces sets
             self.joueurs[players] = set()
-            #ajoute ici une emprunte dans le temps permettra de laisser un certain temps pour la prochaine phase
-            self.time_start = time()
-            asyncio.ensure_future(self.message_player('Cherchez sur cette image : {0}'.format(URL),players, unfurl_link=False))
-            asyncio.ensure_future(self.message_player('Trouvez des choses commençant par la lettre {0}'.format(self.letter),players))
+        #ajoute ici une emprunte dans le temps permettra de laisser un certain temps pour la prochaine phase
+        self.time_start = time()
         self.current_state = 3
 
 
@@ -149,7 +152,6 @@ class Bot:
         return
 
 
-
     async def notify_players(self,message):
             for players in self.joueurs:
                 asyncio.ensure_future(self.message_player(message,players))
@@ -165,19 +167,24 @@ class Bot:
                     break
                 del self.words_to_keep[user][i]
             self.mots_elimines[user] = True
+        #Ici on met tout ce qui concerne la fin d'une manche
         if len(self.mots_elimines) == len(self.joueurs):
             self.eliminate_words()
             self.points_per_words()
             self.count_points()
             asyncio.ensure_future(self.display_points())
-            await asyncio.sleep(30)
-            asyncio.ensure_future(self.initie_manche())
+            self.currente_manche = self.currente_manche + 1
+            if self.currente_manche >= self.nombre_manche:
+                asyncio.ensure_future(self.notify_players('La partie est terminée, merci d\'avoir joué !'))
+                self.current_state = 1
+            else:
+                await asyncio.sleep(30)
+                asyncio.ensure_future(self.initie_manche())
 
 
     def eliminate_words(self):
         for players in self.words_to_keep:
             for word in self.words_to_keep[players]:
-                print(word)
                 self.words_confirmed.add(word)
         for player, words in iter(self.joueurs.items()):
             new_set = set()
@@ -201,7 +208,7 @@ class Bot:
 
 
     async def display_points(self):
-        asyncio.ensure_future(self.notify_players('Manche terminée. Les mots soumis par les joueurs étaient : {0}.\n Les scores en sont actuellement à : {1}'.format(self.joueurs.values(),self.confirmed_joueurs)))
+        asyncio.ensure_future(self.notify_players('Manche terminée. Les mots soumis par les joueurs étaient : {0}.\n Les scores en sont actuellement à : {1}'.format(self.joueurs,self.confirmed_joueurs)))
 
     async def message_player(self,message,player,**kwargs):
         await self.call('chat.postMessage',channel=player,
