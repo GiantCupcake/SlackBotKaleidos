@@ -51,7 +51,7 @@ def points_per_words(valid_words):
     for words in valid_words:
         for word in words:
             if word not in valeur:
-                valeur[word] = 4
+                valeur[word] = 3
             else:
                 valeur[word] = 1
     return valeur

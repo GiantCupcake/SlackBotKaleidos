@@ -22,11 +22,12 @@ class Bot:
         self.rtm = None
         self.state = {1:self.state_init,2:self.state_collect_participation,3:self.state_collect_words,4:self.state_vote}
         self.current_state = 1
-        self.joueurs = OrderedDict()
-        self.confirmed_joueurs = dict() #Utilisé pour éliminer les joueurs ne souhaitant pas participer
+        self.joueurs = dict()
+        self.confirmed_joueurs = dict() #Utilisé pour éliminer les joueurs ne souhaitant pas participer et compter les points
         self.mots_elimines = dict() #un dict pour checker si tout le monde a voté
         self.words_to_keep = dict() #une liste par joueurs
         self.words_confirmed = set()
+        self.words_value = dict()
         self.letter = None
         self.time_start = None
         self.duree_manche = 15
@@ -79,7 +80,6 @@ class Bot:
                 for joueurs in tab_text:
                     #TODO vérifier que les personnes existent
                     self.joueurs[joueurs[2:-1]] = None
-                print(self.joueurs)
                 asyncio.ensure_future(self.message_player('Une partie se lance avec : {0}'.format(self.joueurs),message['user']))
                 asyncio.ensure_future(self.notify_players('Vous avez été désigné pour jouer une partie de Kaleidos, acceptez-vous ? [Y/N]'))
                 self.current_state = 2
@@ -88,15 +88,14 @@ class Bot:
 
     #Etat N°2
     async def state_collect_participation(self, message):
-        print("Stage 2")
-
         user = message['user']
         if user in self.joueurs:
             reponse = message['text'].lower()
             if reponse == 'n':
                 del self.joueurs[user]
             elif reponse == 'y':
-                self.confirmed_joueurs[user] = None
+                #On y met 0 pour compter les points plus tard
+                self.confirmed_joueurs[user] = 0
             else:
                 asyncio.ensure_future(self.message_player('Répondez par Y ou pas N',user))
 
@@ -105,13 +104,17 @@ class Bot:
 
 
     async def initie_manche(self):
+        #Entre deux manches on veut réinitialiser tous les mots
+        self.mots_elimines = dict() #un dict pour checker si tout le monde a voté
+        self.words_to_keep = dict() #une liste par joueurs
+        self.words_confirmed = set()
+        self.words_value = dict()
         self.letter = chr(randint(0, 25) + 97)
         for players in self.joueurs:
             #On va stocker leurs mots dans un set, on initialise ici ces sets
             self.joueurs[players] = set()
             #ajoute ici une emprunte dans le temps permettra de laisser un certain temps pour la prochaine phase
             self.time_start = time()
-            #asyncio.ensure_future(self.message_player('Cherchez sur cette image : {0}'.format(quote(URL)),players))
             asyncio.ensure_future(self.message_player('Cherchez sur cette image : {0}'.format(URL),players, unfurl_link=False))
             asyncio.ensure_future(self.message_player('Trouvez des choses commençant par la lettre {0}'.format(self.letter),players))
         self.current_state = 3
@@ -119,7 +122,6 @@ class Bot:
 
     #Etat N°3
     async def state_collect_words(self, message):
-        print("stage 3")
         if (time() - self.time_start ) > self.duree_manche:
             asyncio.ensure_future(self.prepare_vote())
             return
@@ -131,7 +133,6 @@ class Bot:
                     self.joueurs[user].add(word)
 
     async def prepare_vote(self):
-        print("prepare_vote")
         asyncio.ensure_future(self.notify_players('Le temps est écoulé ! Vous allez maintenant éliminer les mots que vous jugez non-conformes'))
         for me in self.joueurs:
             dico = set()
@@ -156,12 +157,10 @@ class Bot:
 
     #etat 4
     async def state_vote(self,message):
-        print("state 4")
         user = message['user']
         if user in self.joueurs:
             indices = message['text'].split(' ')
-            indices = map(int,indices)
-            print(indices)
+            indices = [int(indice) for indice in indices]
             for i in indices:
                 if i == -1:
                     break
@@ -169,7 +168,10 @@ class Bot:
             self.mots_elimines[user] = True
         if len(self.mots_elimines) == len(self.joueurs):
             self.eliminate_words()
+            self.points_per_words()
             self.count_points()
+            asyncio.ensure_future(self.display_points())
+            asyncio.ensure_future(self.initie_manche())
 
     def eliminate_words(self):
         for players,words in iter(self.words_to_keep.items()):
@@ -184,9 +186,21 @@ class Bot:
             self.joueurs[player] = new_set
         return
 
-    def count_points(self):
-        pass
+    def points_per_words(self):
+        for word in self.words_confirmed:
+            if word not in self.words_value:
+                self.words_value[word] = 3
+            else:
+                self.words_value[word] = 1
 
+    def count_points(self):
+        for player,words in iter(self.joueurs.items()):
+            for word in words:
+                self.confirmed_joueurs[player] = self.confirmed_joueurs[player] + self.words_value[word]
+
+
+    async def display_points(self):
+        asyncio.ensure_future(self.notify_players('Manche terminée. Les mots soumis par les joueurs étaient : {0}.\n Les scores en sont actuellement à : {1}'.format(self.joueurs,self.confirmed_joueurs)))
 
     async def message_player(self,message,player,**kwargs):
         await self.call('chat.postMessage',channel=player,

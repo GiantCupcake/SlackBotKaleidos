@@ -1,4 +1,4 @@
-from command_line import *
+from kaleidosbot import command_line
 
 #def test_state_validate_words():
 #    assert ["b","a"] == state_validate_words(["b"], ["a"])
