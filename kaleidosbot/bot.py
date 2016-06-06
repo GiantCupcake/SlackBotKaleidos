@@ -36,7 +36,7 @@ class Bot:
         self.letter = None
         self.time_start = None
         self.duree_manche = 120 #Des manches de 2 minutes, on pourrait faire plus
-        self.nombre_manche = 1
+        self.nombre_manche = 3
         self.currente_manche = 0
 
     async def _run(self):
